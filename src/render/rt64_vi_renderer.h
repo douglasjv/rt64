@@ -29,6 +29,7 @@ namespace RT64 {
             UserConfiguration::Filtering filtering = UserConfiguration::Filtering::Linear;
             const VI *vi = nullptr;
             bool removeBlackBorders = false;
+            hlslpp::float2 textureCoordinateOffset = { 0.0f, 0.0f };
         };
 
         VIRenderer();

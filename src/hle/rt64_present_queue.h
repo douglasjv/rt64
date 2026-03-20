@@ -16,6 +16,7 @@
 
 namespace RT64 {
     struct WorkloadQueue;
+    struct RenderTarget;
 
     struct PresentQueue {
         struct External {
@@ -45,6 +46,7 @@ namespace RT64 {
         std::recursive_mutex inspectorMutex;
         std::mutex screenFbChangePoolMutex;
         Framebuffer scratchFb;
+        std::unique_ptr<RenderTarget> directStorageTarget;
         FramebufferChangePool scratchFbChangePool;
         FramebufferChangePool screenFbChangePool;
         std::atomic<bool> viewRDRAM = false;

@@ -316,7 +316,11 @@ namespace RT64 {
         // Create the swap chain with the texture count specified from the configuration.
         RenderSwapChainDesc swapChainDesc;
         swapChainDesc.renderWindow = appWindow->windowHandle;
+#if defined(__ANDROID__)
+        swapChainDesc.format = RenderFormat::R8G8B8A8_UNORM;
+#else
         swapChainDesc.format = RenderFormat::B8G8R8A8_UNORM;
+#endif
         swapChainDesc.textureCount = (userConfig.displayBuffering == UserConfiguration::DisplayBuffering::Triple) ? 3 : 2;
 
         // Enable present wait if supported by the device. We specify a max latency of 1 as we use it to wait right before the next
@@ -734,8 +738,31 @@ namespace RT64 {
     }
 
     bool Application::checkDirectoryCreated(const std::filesystem::path &path) {
-        std::filesystem::path dirPath(path);
-        return std::filesystem::is_directory(dirPath) || std::filesystem::create_directories(dirPath);
+        if (path.empty()) {
+            fprintf(stderr, "RT64 data path was empty.\n");
+            return false;
+        }
+
+        std::error_code ec;
+        if (std::filesystem::is_directory(path, ec)) {
+            return true;
+        }
+
+        if (ec) {
+            fprintf(stderr, "Failed to inspect RT64 directory %s: %s\n", path.string().c_str(), ec.message().c_str());
+            return false;
+        }
+
+        if (std::filesystem::create_directories(path, ec)) {
+            return true;
+        }
+
+        if (ec) {
+            fprintf(stderr, "Failed to create RT64 directory %s: %s\n", path.string().c_str(), ec.message().c_str());
+            return false;
+        }
+
+        return std::filesystem::is_directory(path, ec) && !ec;
     }
 
     void Application::updateUserConfig(bool discardFBs) {

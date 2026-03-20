@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <mutex>
+#include <vector>
 
 #include "common/rt64_common.h"
 #include "common/rt64_emulator_configuration.h"
@@ -23,6 +25,15 @@ namespace RT64 {
         uint32_t available = 0;
         uint32_t count = 0;
         bool skipped = false;
+    };
+
+    struct AndroidVISnapshot {
+        uint32_t address = 0;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        uint8_t siz = 0;
+        uint64_t sequence = 0;
+        std::vector<uint8_t> bytes;
     };
 
     struct SharedQueueResources {
@@ -57,6 +68,47 @@ namespace RT64 {
         std::mutex interpolatedMutex;
         std::condition_variable interpolatedCondition;
         std::mutex workloadMutex;
+        std::mutex presentMutex;
+        std::condition_variable presentCondition;
+        uint32_t activePresents = 0;
+        bool managerReconfiguration = false;
+        AndroidVISnapshot androidVISnapshot;
+        std::mutex androidVISnapshotMutex;
+
+        void beginPresentResourceUse() {
+            std::unique_lock<std::mutex> presentLock(presentMutex);
+            presentCondition.wait(presentLock, [this]() {
+                return !managerReconfiguration;
+            });
+            activePresents++;
+        }
+
+        void endPresentResourceUse() {
+            {
+                std::scoped_lock<std::mutex> presentLock(presentMutex);
+                assert(activePresents > 0);
+                activePresents--;
+            }
+
+            presentCondition.notify_all();
+        }
+
+        void beginManagerReconfiguration() {
+            std::unique_lock<std::mutex> presentLock(presentMutex);
+            managerReconfiguration = true;
+            presentCondition.wait(presentLock, [this]() {
+                return activePresents == 0;
+            });
+        }
+
+        void endManagerReconfiguration() {
+            {
+                std::scoped_lock<std::mutex> presentLock(presentMutex);
+                managerReconfiguration = false;
+            }
+
+            presentCondition.notify_all();
+        }
 
         void setSwapChainSize(uint32_t width, uint32_t height) {
             std::scoped_lock<std::mutex> configurationLock(configurationMutex);

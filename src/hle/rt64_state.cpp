@@ -7,6 +7,13 @@
 #include <cassert>
 #include <cinttypes>
 
+#if defined(__ANDROID__) && defined(BANJO_ENABLE_ANDROID_TRACE_LOGS)
+#include <android/log.h>
+#define BANJO_ANDROID_STATE_LOG(...) __android_log_print(ANDROID_LOG_INFO, "BanjoRecomp", __VA_ARGS__)
+#else
+#define BANJO_ANDROID_STATE_LOG(...) ((void)0)
+#endif
+
 #include "im3d/im3d.h"
 #include "im3d/im3d_math.h"
 #include "imgui/imgui.h"
@@ -28,6 +35,16 @@
 #define MI_INTR_SP          0x00000001
 
 namespace RT64 {
+#if defined(__ANDROID__)
+    static uint32_t g_android_interesting_update_screen_logs = 0;
+    static uint32_t g_android_last_interesting_vi_origin = UINT32_MAX;
+    static uint32_t g_android_last_interesting_vi_width = UINT32_MAX;
+    static uint32_t g_android_last_interesting_fb_address = UINT32_MAX;
+    static uint32_t g_android_last_interesting_fb_width = UINT32_MAX;
+    static uint32_t g_android_last_interesting_fb_height = UINT32_MAX;
+    static uint8_t g_android_last_interesting_fb_siz = UINT8_MAX;
+#endif
+
     const float ShiftScaleMap[] = {
         1.0f,
         1.0f / 2.0f,
@@ -1837,12 +1854,32 @@ namespace RT64 {
         Present &present = ext.presentQueue->presents[presentCursor];
         present.fbOperations.clear();
         present.storage.clear();
+        present.storageAddress = 0;
 
         const bool presentEarly = !ext.presentQueue->viewRDRAM && (ext.enhancementConfig->presentation.mode == EnhancementConfiguration::Presentation::Mode::PresentEarly);
         const uint32_t screenFbAddress = newVI.fbAddress();
         const hlslpp::uint2 screenFbSize = newVI.fbSize();
         const uint8_t screenFbSiz = newVI.fbSiz();
         const bool viVisible = newVI.visible();
+#if defined(__ANDROID__)
+        const bool interestingScreenVI = viVisible && ((newVI.width != 320U) || (screenFbSize.x != 320U) || (screenFbSize.y != 240U) ||
+            ((screenFbAddress != 0U) && (screenFbAddress < 0x00600000U)));
+        const bool changedInterestingScreenVI = interestingScreenVI && ((newVI.origin != g_android_last_interesting_vi_origin) ||
+            (newVI.width != g_android_last_interesting_vi_width) || (screenFbAddress != g_android_last_interesting_fb_address) ||
+            (screenFbSize.x != g_android_last_interesting_fb_width) || (screenFbSize.y != g_android_last_interesting_fb_height) ||
+            (screenFbSiz != g_android_last_interesting_fb_siz));
+        if (changedInterestingScreenVI && (g_android_interesting_update_screen_logs < 32U)) {
+            BANJO_ANDROID_STATE_LOG("State::updateScreen VI origin=0x%08X width=%u fbAddress=0x%08X fbSize=%ux%u siz=%u fromEarly=%u",
+                newVI.origin, newVI.width, screenFbAddress, uint32_t(screenFbSize.x), uint32_t(screenFbSize.y), screenFbSiz, fromEarlyPresent ? 1U : 0U);
+            g_android_interesting_update_screen_logs++;
+            g_android_last_interesting_vi_origin = newVI.origin;
+            g_android_last_interesting_vi_width = newVI.width;
+            g_android_last_interesting_fb_address = screenFbAddress;
+            g_android_last_interesting_fb_width = screenFbSize.x;
+            g_android_last_interesting_fb_height = screenFbSize.y;
+            g_android_last_interesting_fb_siz = screenFbSiz;
+        }
+#endif
         bool viDifferent = false;
         if (!fromEarlyPresent) {
             // Keep last known screen VI updated.
@@ -1910,10 +1947,51 @@ namespace RT64 {
 
             // Store the RAM required by the VI so the render thread can display it if necessary.
             if (screenFbSiz >= G_IM_SIZ_16b) {
-                uint32_t screenFbBytes = uint32_t(screenFbSize.x * screenFbSize.y) << (screenFbSiz - 1);
-                present.storage.resize(screenFbBytes);
-                memcpy(present.storage.data(), &RDRAM[screenFbAddress], screenFbBytes);
-                uint64_t newScreenHash = XXH3_64bits(present.storage.data(), screenFbBytes);
+                const uint32_t screenFbBytes = uint32_t(screenFbSize.x * screenFbSize.y) << (screenFbSiz - 1);
+                const uint32_t screenFbRowBytes = screenFbSize.x << (screenFbSiz - 1);
+                uint32_t storageBaseAddress = screenFbAddress;
+                uint32_t storageEndAddress = screenFbAddress + screenFbBytes;
+
+                Framebuffer *presentSourceFb = framebufferManager.findMostRecentContaining(newVI.origin, newVI.origin + 1);
+                if ((presentSourceFb != nullptr) && (presentSourceFb->siz == screenFbSiz)) {
+                    storageBaseAddress = std::min(storageBaseAddress, presentSourceFb->addressStart);
+                    storageEndAddress = std::max(storageEndAddress, presentSourceFb->addressEnd);
+                }
+
+                const uint32_t originOffset = (newVI.origin >= screenFbAddress) ? (newVI.origin - screenFbAddress) : 0;
+                if ((screenFbRowBytes > 0) && (originOffset >= screenFbRowBytes) && ((originOffset % screenFbRowBytes) == 0)) {
+                    const uint32_t extraRows = originOffset / screenFbRowBytes;
+                    const uint32_t extraBytes = screenFbRowBytes * extraRows;
+                    if (storageEndAddress <= (RDRAMSize - extraBytes)) {
+                        storageEndAddress += extraBytes;
+                    }
+                }
+
+                bool usedAndroidVISnapshot = false;
+#if defined(__ANDROID__)
+                {
+                    std::scoped_lock snapshotLock(ext.sharedQueueResources->androidVISnapshotMutex);
+                    const AndroidVISnapshot &snapshot = ext.sharedQueueResources->androidVISnapshot;
+                    const uint32_t snapshotEndAddress = snapshot.address + uint32_t(snapshot.bytes.size());
+                    if ((snapshot.sequence > 0) && !snapshot.bytes.empty() &&
+                        (snapshot.siz == screenFbSiz) && (snapshot.address <= storageBaseAddress) &&
+                        (snapshotEndAddress >= storageEndAddress))
+                    {
+                        present.storageAddress = snapshot.address;
+                        present.storage = snapshot.bytes;
+                        usedAndroidVISnapshot = true;
+                    }
+                }
+#endif
+
+                if (!usedAndroidVISnapshot) {
+                    const uint32_t storageBytes = storageEndAddress - storageBaseAddress;
+                    present.storageAddress = storageBaseAddress;
+                    present.storage.resize(storageBytes);
+                    memcpy(present.storage.data(), &RDRAM[storageBaseAddress], storageBytes);
+                }
+
+                uint64_t newScreenHash = XXH3_64bits(present.storage.data(), present.storage.size());
                 screenChangesMade = (newScreenHash != lastScreenHash);
                 lastScreenHash = newScreenHash;
             }
@@ -2075,7 +2153,7 @@ namespace RT64 {
                         ImGui::Text("You must restart the application for this change to be applied.");
                     }
 
-                    resConfigChanged = ImGui::Combo("Resolution Mode", reinterpret_cast<int *>(&userConfig.resolution), "Original\0Window Integer Scale\0Manual\0") || resConfigChanged;
+                    resConfigChanged = ImGui::Combo("Resolution Mode", reinterpret_cast<int *>(&userConfig.resolution), "Original\0Window Integer Scale (Cover)\0Window Integer Scale (Fit)\0Manual\0") || resConfigChanged;
                     const bool manualResolution = (userConfig.resolution == UserConfiguration::Resolution::Manual);
                     if (manualResolution) {
                         resConfigChanged = ImGui::InputDouble("Resolution Multiplier", &userConfig.resolutionMultiplier) || resConfigChanged;

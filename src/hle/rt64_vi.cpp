@@ -14,13 +14,104 @@
 
 namespace RT64 {
     // VI
+
+    namespace {
+        struct VisibleSourceRect {
+            hlslpp::float2 offset = { 0.0f, 0.0f };
+            hlslpp::float2 size = { 0.0f, 0.0f };
+        };
+
+        VisibleSourceRect computeVisibleSourceRect(const VI &vi) {
+            const hlslpp::uint2 fbSize = vi.fbSize();
+            VisibleSourceRect rect = { { 0.0f, 0.0f }, { float(fbSize.x), float(fbSize.y) } };
+            if ((fbSize.x == 0) || (fbSize.y == 0) || (vi.width == 0) || (vi.xTransform.xScale == 0) || (vi.yTransform.yScale == 0)) {
+                return rect;
+            }
+
+            const bool pal = ((vi.vSync & 0x3FFU) > 550U);
+            const int32_t hScanStart = pal ? 128 : 108;
+            const int32_t vScanStart = pal ? 44 : 34;
+            const int32_t hScanStop = hScanStart + 640;
+            const int32_t vScanStop = vScanStart + (pal ? 576 : 480);
+
+            int32_t dx0 = std::max(hScanStart, int32_t(vi.hRegion.hStart));
+            int32_t dx1 = std::min(hScanStop, int32_t(vi.hRegion.hEnd));
+            int32_t dy0 = std::max(vScanStart, int32_t(vi.vRegion.vStart));
+            int32_t dy1 = std::min(vScanStop, int32_t(vi.vRegion.vEnd));
+
+            // Match the VI guard-band crop used by software scanout implementations.
+            if (dx0 >= hScanStart) {
+                dx0 += 8;
+            }
+
+            if (dx1 < hScanStop) {
+                dx1 -= 7;
+            }
+
+            dx1 = std::max(dx1, dx0);
+            dy1 = std::max(dy1, dy0);
+
+            const float xScale = vi.xScaleFloat();
+            const float widthScale = float(fbSize.x) / float(vi.width);
+            const float yScale = vi.yScaleFloat() * widthScale;
+            if ((xScale <= 0.0f) || (yScale <= 0.0f)) {
+                return rect;
+            }
+
+            const float xOffset = vi.xOffsetFloat();
+            const float yOffset = vi.yOffsetFloat() * 0.5f;
+            float srcLeft = xOffset + float(dx0 - int32_t(vi.hRegion.hStart)) / xScale;
+            float srcRight = xOffset + float(dx1 - int32_t(vi.hRegion.hStart)) / xScale;
+            float srcTop = yOffset + float(dy0 - int32_t(vi.vRegion.vStart)) / (2.0f * yScale);
+            float srcBottom = yOffset + float(dy1 - int32_t(vi.vRegion.vStart)) / (2.0f * yScale);
+
+            srcLeft = std::clamp(srcLeft, 0.0f, float(fbSize.x));
+            srcRight = std::clamp(std::max(srcRight, srcLeft), 0.0f, float(fbSize.x));
+            srcTop = std::clamp(srcTop, 0.0f, float(fbSize.y));
+            srcBottom = std::clamp(std::max(srcBottom, srcTop), 0.0f, float(fbSize.y));
+
+            rect.offset = { srcLeft, srcTop };
+            rect.size = { srcRight - srcLeft, srcBottom - srcTop };
+
+            if ((rect.size.x < 1.0f) || (rect.size.y < 1.0f)) {
+                rect.offset = { 0.0f, 0.0f };
+                rect.size = { float(fbSize.x), float(fbSize.y) };
+            }
+
+            return rect;
+        }
+    }
     
     hlslpp::float4 VI::viewRectangle() const {
-        return { 0.0f, 0.0f, 1.0f, 1.0f };
+        const hlslpp::uint2 fbSize = this->fbSize();
+        if ((fbSize.x == 0) || (fbSize.y == 0)) {
+            return { 0.0f, 0.0f, 1.0f, 1.0f };
+        }
+
+        const VisibleSourceRect visibleRect = computeVisibleSourceRect(*this);
+        return {
+            -visibleRect.offset.x / float(fbSize.x),
+            -visibleRect.offset.y / float(fbSize.y),
+            1.0f,
+            1.0f
+        };
     }
 
     hlslpp::float4 VI::cropRectangle() const {
-        return { 0.0f, 0.0f, 1.0f, 1.0f };
+        const hlslpp::uint2 fbSize = this->fbSize();
+        if ((fbSize.x == 0) || (fbSize.y == 0)) {
+            return { 0.0f, 0.0f, 1.0f, 1.0f };
+        }
+
+        const VisibleSourceRect visibleRect = computeVisibleSourceRect(*this);
+        const float cropWidth = std::clamp(float(visibleRect.size.x) / float(fbSize.x), 0.0f, 1.0f);
+        const float cropHeight = std::clamp(float(visibleRect.size.y) / float(fbSize.y), 0.0f, 1.0f);
+        return {
+            0.0f,
+            0.0f,
+            cropWidth,
+            cropHeight
+        };
     }
 
     float VI::gamma() const {

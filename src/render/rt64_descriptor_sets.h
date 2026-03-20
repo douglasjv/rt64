@@ -303,7 +303,12 @@ namespace RT64 {
             builder.begin();
             gTextures = builder.addTexture(0, UpperRange);
             gTMEM = gTextures;
+#       ifdef __ANDROID__
+            // Adreno crashes when the framebuffer texture cache uses Vulkan variable descriptor counts.
+            builder.end();
+#       else
             builder.end(true, textureCacheSize);
+#       endif
 
             if (device != nullptr) {
                 create(device);

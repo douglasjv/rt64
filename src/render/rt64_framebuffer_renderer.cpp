@@ -16,6 +16,13 @@
 #include "rt64_descriptor_sets.h"
 #include "rt64_render_worker.h"
 
+#if defined(__ANDROID__) && defined(BANJO_ENABLE_ANDROID_TRACE_LOGS)
+#include <android/log.h>
+#define BANJO_FB_LOG(...) __android_log_print(ANDROID_LOG_INFO, "BanjoFB", __VA_ARGS__)
+#else
+#define BANJO_FB_LOG(...) ((void)0)
+#endif
+
 // TODO: Move to shared.
 
 namespace interop {
@@ -310,9 +317,19 @@ namespace RT64 {
         assert(worker != nullptr);
         assert(drawBuffers != nullptr);
         
-        const bool createSet = (descTextureSet == nullptr) || (descTextureSet->textureCacheSize < (textureCacheSize + 1));
+        const uint32_t maxTextureDescriptors = static_cast<uint32_t>(FramebufferRendererDescriptorTextureSet::UpperRange);
+        const uint32_t requiredTextureSlots = std::min(textureCacheSize + 1, maxTextureDescriptors);
+        const uint32_t requestedDescriptorCapacity = ((textureCacheSize + 1) * 3) / 2;
+        const uint32_t descriptorCapacity = std::min(requestedDescriptorCapacity, maxTextureDescriptors);
+        const bool createSet = (descTextureSet == nullptr) || (descTextureSet->textureCacheSize < requiredTextureSlots);
         if (createSet) {
-            descTextureSet = std::make_unique<FramebufferRendererDescriptorTextureSet>(worker->device, ((textureCacheSize + 1) * 3) / 2);
+            if (descriptorCapacity < requestedDescriptorCapacity) {
+                BANJO_FB_LOG("Clamping texture descriptor capacity: requested=%u max=%u textureCacheSize=%u",
+                    requestedDescriptorCapacity, maxTextureDescriptors, textureCacheSize);
+            }
+
+            descTextureSet = std::make_unique<FramebufferRendererDescriptorTextureSet>(worker->device, descriptorCapacity);
+            BANJO_FB_LOG("Created texture descriptor set: textureCacheSize=%u descriptorCapacity=%u", textureCacheSize, descTextureSet->textureCacheSize);
         }
 
         if (createSet || (descriptorTextureReplacementMapEnabled != textureCacheReplacementMapEnabled)) {
@@ -384,9 +401,19 @@ namespace RT64 {
         // Update texture vector with static textures from the cache and dynamic resource views.
         if (descriptorTextureGlobalVersion != textureCacheGlobalVersion) {
             const uint32_t textureVersionSize = static_cast<uint32_t>(textureCacheVersions.size());
-            for (uint32_t i = 0; i < textureVersionSize; i++) {
+            const uint32_t descriptorUpdateCount = std::min(textureVersionSize, descTextureSet->textureCacheSize);
+            if (descriptorUpdateCount < textureVersionSize) {
+                BANJO_FB_LOG("Skipping texture descriptors beyond capacity: updateCount=%u textureVersionSize=%u",
+                    descriptorUpdateCount, textureVersionSize);
+            }
+
+            for (uint32_t i = 0; i < descriptorUpdateCount; i++) {
                 if (textureCacheVersions[i] == descriptorTextureVersions[i]) {
                     continue;
+                }
+
+                if ((i % 128) == 0) {
+                    BANJO_FB_LOG("Updating texture descriptor %u/%u", i, textureVersionSize);
                 }
 
                 descriptorTextureVersions[i] = textureCacheVersions[i];
@@ -409,6 +436,12 @@ namespace RT64 {
         }
 
         for (const DynamicTextureView &dynamicView : dynamicTextureViewVector) {
+            if (dynamicView.dstIndex >= descTextureSet->textureCacheSize) {
+                BANJO_FB_LOG("Skipping dynamic texture descriptor beyond capacity: descriptor=%u capacity=%u",
+                    dynamicView.dstIndex, descTextureSet->textureCacheSize);
+                continue;
+            }
+
             descTextureSet->setTexture(dynamicView.dstIndex, dynamicView.texture, RenderTextureLayout::SHADER_READ, dynamicView.textureView);
             descriptorTextureVersions[dynamicView.dstIndex] = 0;
         }

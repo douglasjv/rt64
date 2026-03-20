@@ -195,6 +195,15 @@ namespace RT64 {
             }
 
             break;
+        case UserConfiguration::Resolution::WindowIntegerScaleFit:
+            if (ext.sharedResources->swapChainHeight > 0) {
+                resolutionMultiplier = std::max(float(ext.sharedResources->swapChainHeight / referenceHeight), 1.0f);
+            }
+            else {
+                resolutionMultiplier = 1.0f;
+            }
+
+            break;
         case UserConfiguration::Resolution::Manual:
             resolutionMultiplier = float(ext.sharedResources->userConfig.resolutionMultiplier);
             break;
@@ -263,14 +272,18 @@ namespace RT64 {
                 });
             }
 
-            std::scoped_lock<std::mutex> managerLock(ext.sharedResources->managerMutex);
-            FramebufferManager &fbManager = ext.sharedResources->framebufferManager;
-            RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
-            renderFramebufferManager->destroyAll();
-            targetManager.destroyAll();
-            fbManager.destroyAllTileCopies();
-            ext.sharedResources->fbConfigChanged = false;
-            ext.sharedResources->interpolatedColorTargets.clear();
+            ext.sharedResources->beginManagerReconfiguration();
+            {
+                std::scoped_lock destroyLock(ext.sharedResources->workloadMutex, ext.sharedResources->managerMutex);
+                FramebufferManager &fbManager = ext.sharedResources->framebufferManager;
+                RenderTargetManager &targetManager = ext.sharedResources->renderTargetManager;
+                renderFramebufferManager->destroyAll();
+                targetManager.destroyAll();
+                fbManager.destroyAllTileCopies();
+                ext.sharedResources->fbConfigChanged = false;
+                ext.sharedResources->interpolatedColorTargets.clear();
+            }
+            ext.sharedResources->endManagerReconfiguration();
         }
 
         if (ext.sharedResources->userConfigChanged) {

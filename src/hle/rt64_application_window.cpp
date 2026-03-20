@@ -103,7 +103,7 @@ namespace RT64 {
         bounds.top = rect.top;
         bounds.width = rect.right - rect.left;
         bounds.height = rect.bottom - rect.top;
-#   elif defined(__ANDROID__)
+#   elif defined(__ANDROID__) && !defined(RT64_SDL_WINDOW_VULKAN)
         static_assert(false && "Android unimplemented");
 #   elif defined(__linux__) || defined(__APPLE__)
         if (SDL_VideoInit(nullptr) != 0) {

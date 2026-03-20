@@ -35,9 +35,11 @@ namespace RT64 {
         std::unique_ptr<TextureCopyDescriptorSet> textureResolveDescSet;
         std::unique_ptr<BoxFilterDescriptorSet> filterDescSet;
         std::unique_ptr<FramebufferWriteDescriptorTextureSet> fbWriteDescSet;
+        std::unique_ptr<RenderBuffer> uploadBuffer;
         uint32_t addressForName = 0;
         uint32_t width = 0;
         uint32_t height = 0;
+        uint64_t uploadBufferSize = 0;
         uint64_t textureRevision = 0;
         Framebuffer::Type type = Framebuffer::Type::None;
         hlslpp::float2 resolutionScale = { 1.0f, 1.0f };
@@ -60,6 +62,7 @@ namespace RT64 {
         void copyFromTarget(RenderWorker *worker, RenderTarget *src, uint32_t x, uint32_t y, uint32_t width, uint32_t height, const ShaderLibrary *shaderLibrary);
         void resolveFromTarget(RenderWorker *worker, RenderTarget *src, const ShaderLibrary *shaderLibrary);
         void copyFromChanges(RenderWorker *worker, const FramebufferChange &fbChange, uint32_t fbWidth, uint32_t fbHeight, uint32_t rowStart, const ShaderLibrary *shaderLibrary);
+        void uploadRGBA8(RenderWorker *worker, const uint8_t *rgbaData, uint32_t srcWidth, uint32_t srcHeight);
         void clearColorTarget(RenderWorker *worker);
         void clearDepthTarget(RenderWorker *worker);
         void downsampleTarget(RenderWorker *worker, const ShaderLibrary *shaderLibrary);

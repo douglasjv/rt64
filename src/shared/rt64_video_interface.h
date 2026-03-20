@@ -12,7 +12,7 @@ namespace interop {
     struct VideoInterfaceCB {
         float2 videoResolution;
         float2 textureResolution;
-        float gamma;
+        float2 gammaAndOffset;
     };
 #ifdef HLSL_CPU
 };

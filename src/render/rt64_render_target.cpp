@@ -322,6 +322,30 @@ namespace RT64 {
         markForResolve();
     }
 
+    void RenderTarget::uploadRGBA8(RenderWorker *worker, const uint8_t *rgbaData, uint32_t srcWidth, uint32_t srcHeight) {
+        assert(worker != nullptr);
+        assert(rgbaData != nullptr);
+        assert(type == Framebuffer::Type::Color);
+        assert(!usesHDR && !usesResolve() && "uploadRGBA8 expects a non-MSAA SDR color target.");
+        assert((texture != nullptr) && (width == srcWidth) && (height == srcHeight));
+
+        const uint64_t uploadSize = uint64_t(srcWidth) * uint64_t(srcHeight) * 4;
+        if (uploadBufferSize < uploadSize) {
+            uploadBuffer = worker->device->createBuffer(RenderBufferDesc::UploadBuffer(uploadSize));
+            uploadBufferSize = uploadSize;
+        }
+
+        void *mappedData = uploadBuffer->map();
+        std::memcpy(mappedData, rgbaData, size_t(uploadSize));
+        uploadBuffer->unmap();
+
+        RenderTextureCopyLocation dstLocation = RenderTextureCopyLocation::Subresource(texture.get());
+        RenderTextureCopyLocation srcLocation = RenderTextureCopyLocation::PlacedFootprint(uploadBuffer.get(), RenderFormat::R8G8B8A8_UNORM, srcWidth, srcHeight, 1, srcWidth);
+        worker->commandList->barriers(RenderBarrierStage::COPY, RenderTextureBarrier(texture.get(), RenderTextureLayout::COPY_DEST));
+        worker->commandList->copyTextureRegion(dstLocation, srcLocation);
+        resolvedTextureDirty = false;
+    }
+
     void RenderTarget::clearColorTarget(RenderWorker *worker) {
         assert(worker != nullptr);
 

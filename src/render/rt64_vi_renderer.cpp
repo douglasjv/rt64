@@ -7,8 +7,19 @@
 #include "shared/rt64_hlsl.h"
 #include "shared/rt64_video_interface.h"
 
+#if defined(__ANDROID__) && defined(BANJO_ENABLE_ANDROID_TRACE_LOGS)
+#include <android/log.h>
+#define BANJO_ANDROID_VI_LOG(...) __android_log_print(ANDROID_LOG_INFO, "BanjoVI", __VA_ARGS__)
+#else
+#define BANJO_ANDROID_VI_LOG(...) ((void)0)
+#endif
+
 namespace RT64 {
     // VIRenderer
+
+#if defined(__ANDROID__)
+    static uint32_t g_android_vi_render_logs = 0;
+#endif
 
     VIRenderer::VIRenderer() { }
 
@@ -76,7 +87,24 @@ namespace RT64 {
         interop::VideoInterfaceCB pushConstants;
         pushConstants.videoResolution = computeHDSize(hlslpp::float2(p.vi->fbSize()), p.resolutionScale, p.downsamplingScale);
         pushConstants.textureResolution = { float(p.textureWidth), float(p.textureHeight) };
-        pushConstants.gamma = p.vi->gamma();
+        pushConstants.gammaAndOffset = { p.vi->gamma(), p.textureCoordinateOffset.y };
+
+#if defined(__ANDROID__)
+        if (g_android_vi_render_logs < 64) {
+            BANJO_ANDROID_VI_LOG(
+                "render[%u] viewport=(%.1f,%.1f %.1fx%.1f) scissor=(%d,%d,%d,%d) video=(%.1f,%.1f) texture=(%.1f,%.1f) uvOffset=(%.4f,%.4f) hRegion=(%u,%u) vRegion=(%u,%u) xScale=%.4f xOffset=%.4f yScale=%.4f yOffset=%.4f",
+                g_android_vi_render_logs,
+                viewport.x, viewport.y, viewport.width, viewport.height,
+                scissor.left, scissor.top, scissor.right, scissor.bottom,
+                pushConstants.videoResolution.x, pushConstants.videoResolution.y,
+                pushConstants.textureResolution.x, pushConstants.textureResolution.y,
+                float(p.textureCoordinateOffset.x), float(p.textureCoordinateOffset.y),
+                p.vi->hRegion.hStart, p.vi->hRegion.hEnd, p.vi->vRegion.vStart, p.vi->vRegion.vEnd,
+                p.vi->xScaleFloat(), p.vi->xOffsetFloat(), p.vi->yScaleFloat(), p.vi->yOffsetFloat()
+            );
+            g_android_vi_render_logs++;
+        }
+#endif
 
         p.commandList->setPipeline(shader->pipeline.get());
         p.commandList->setGraphicsPipelineLayout(shader->pipelineLayout.get());

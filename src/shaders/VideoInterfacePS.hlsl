@@ -11,11 +11,12 @@ SamplerState gSampler : register(s2);
 // Limit texture sampling to the area the VI can sample of the texture.
 
 float4 SampleInput(float2 uv) {
-    const float2 LowerRight = gConstants.videoResolution / gConstants.textureResolution;
+    const float2 TextureOffset = float2(0.0f, gConstants.gammaAndOffset.y);
+    const float2 LowerRight = TextureOffset + (gConstants.videoResolution / gConstants.textureResolution);
     const float2 HalfPixel = float2(0.5f, 0.5f) / gConstants.textureResolution;
     float2 outsideBorder = step(LowerRight, uv);
-    float4 sampledColor = gInput.SampleLevel(gSampler, clamp(uv, HalfPixel, LowerRight - HalfPixel), 0);
-    float4 gammaCorrectedColor = pow(sampledColor, gConstants.gamma);
+    float4 sampledColor = gInput.SampleLevel(gSampler, clamp(uv, TextureOffset + HalfPixel, LowerRight - HalfPixel), 0);
+    float4 gammaCorrectedColor = pow(sampledColor, gConstants.gammaAndOffset.x);
     gammaCorrectedColor.rgb *= max(1.0f - outsideBorder.x - outsideBorder.y, 0.0f);
     gammaCorrectedColor.a = 1.0f;
     return gammaCorrectedColor;
@@ -36,6 +37,6 @@ float4 PSMain(in float4 pos : SV_Position, in float2 uv : TEXCOORD0) : SV_TARGET
 #ifdef PIXEL_ANTIALIASING
     return PixelAntialiasing(uv);
 #else
-    return SampleInput((uv / gConstants.textureResolution) * gConstants.videoResolution);
+    return SampleInput((uv / gConstants.textureResolution) * gConstants.videoResolution + float2(0.0f, gConstants.gammaAndOffset.y));
 #endif
 }

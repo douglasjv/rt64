@@ -16,7 +16,7 @@ RWTexture2D<uint> gOutputChangeBoolean : register(u2, space1);
 [numthreads(FB_COMMON_WORKGROUP_SIZE, FB_COMMON_WORKGROUP_SIZE, 1)]
 void CSMain(uint2 coord : SV_DispatchThreadID) {
     if ((coord.x < gConstants.resolution.x) && (coord.y < gConstants.resolution.y)) {
-        const uint bufferIndex = coord.y * gConstants.resolution.x.x + coord.x;
+        const uint bufferIndex = coord.y * gConstants.resolution.x + coord.x;
         const uint2 pixelCoord = gConstants.offset + coord.xy;
         if (gNewInput[bufferIndex] != gCurInput[bufferIndex]) {
             const uint swappedUint = EndianSwapUINT(gNewInput[bufferIndex], gConstants.siz);

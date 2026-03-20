@@ -23,6 +23,7 @@ namespace RT64 {
         enum class Resolution {
             Original,
             WindowIntegerScale,
+            WindowIntegerScaleFit,
             Manual,
             OptionCount
         };
@@ -124,6 +125,7 @@ namespace RT64 {
     NLOHMANN_JSON_SERIALIZE_ENUM(UserConfiguration::Resolution, {
         { UserConfiguration::Resolution::Original, "Original" },
         { UserConfiguration::Resolution::WindowIntegerScale, "WindowIntegerScale" },
+        { UserConfiguration::Resolution::WindowIntegerScaleFit, "WindowIntegerScaleFit" },
         { UserConfiguration::Resolution::Manual, "Manual" }
     });
 

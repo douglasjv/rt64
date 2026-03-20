@@ -17,6 +17,7 @@ namespace RT64 {
 
     struct Present {
         VI screenVI;
+        uint32_t storageAddress = 0;
         std::vector<uint8_t> storage;
         std::vector<FramebufferOperation> fbOperations;
         DebuggerFramebuffer debuggerFramebuffer;
