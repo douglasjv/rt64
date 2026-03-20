@@ -30,7 +30,7 @@
 	url = https://github.com/nothings/stb
 [submodule "src/contrib/nativefiledialog-extended"]
 	path = src/contrib/nativefiledialog-extended
-	url = https://github.com/btzy/nativefiledialog-extended
+	url = https://github.com/douglasjv/nativefiledialog-extended
 [submodule "src/contrib/spirv-cross"]
 	path = src/contrib/spirv-cross
 	url = https://github.com/KhronosGroup/SPIRV-Cross.git
@@ -39,10 +39,10 @@
 	url = https://github.com/redorav/ddspp.git
 [submodule "src/contrib/zstd"]
 	path = src/contrib/zstd
-	url = https://github.com/facebook/zstd
+	url = https://github.com/douglasjv/zstd
 [submodule "src/contrib/re-spirv"]
 	path = src/contrib/re-spirv
 	url = https://github.com/rt64/re-spirv
 [submodule "src/contrib/plume"]
 	path = src/contrib/plume
-	url = https://github.com/renderbag/plume.git
+	url = https://github.com/douglasjv/plume.git
