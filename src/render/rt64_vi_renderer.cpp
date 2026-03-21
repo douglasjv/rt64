@@ -7,11 +7,11 @@
 #include "shared/rt64_hlsl.h"
 #include "shared/rt64_video_interface.h"
 
-#if defined(__ANDROID__) && defined(BANJO_ENABLE_ANDROID_TRACE_LOGS)
+#if defined(__ANDROID__) && defined(RECOMP_ENABLE_ANDROID_TRACE_LOGS)
 #include <android/log.h>
-#define BANJO_ANDROID_VI_LOG(...) __android_log_print(ANDROID_LOG_INFO, "BanjoVI", __VA_ARGS__)
+#define RT64_ANDROID_VI_LOG(...) __android_log_print(ANDROID_LOG_INFO, "RT64VI", __VA_ARGS__)
 #else
-#define BANJO_ANDROID_VI_LOG(...) ((void)0)
+#define RT64_ANDROID_VI_LOG(...) ((void)0)
 #endif
 
 namespace RT64 {
@@ -91,7 +91,7 @@ namespace RT64 {
 
 #if defined(__ANDROID__)
         if (g_android_vi_render_logs < 64) {
-            BANJO_ANDROID_VI_LOG(
+            RT64_ANDROID_VI_LOG(
                 "render[%u] viewport=(%.1f,%.1f %.1fx%.1f) scissor=(%d,%d,%d,%d) video=(%.1f,%.1f) texture=(%.1f,%.1f) uvOffset=(%.4f,%.4f) hRegion=(%u,%u) vRegion=(%u,%u) xScale=%.4f xOffset=%.4f yScale=%.4f yOffset=%.4f",
                 g_android_vi_render_logs,
                 viewport.x, viewport.y, viewport.width, viewport.height,

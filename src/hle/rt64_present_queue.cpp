@@ -11,11 +11,11 @@
 
 #include "rt64_workload_queue.h"
 
-#if defined(__ANDROID__) && defined(BANJO_ENABLE_ANDROID_TRACE_LOGS)
+#if defined(__ANDROID__) && defined(RECOMP_ENABLE_ANDROID_TRACE_LOGS)
 #include <android/log.h>
-#define BANJO_ANDROID_LOG(...) __android_log_print(ANDROID_LOG_INFO, "BanjoRecomp", __VA_ARGS__)
+#define RT64_ANDROID_PRESENT_LOG(...) __android_log_print(ANDROID_LOG_INFO, "RT64Present", __VA_ARGS__)
 #else
-#define BANJO_ANDROID_LOG(...) ((void)0)
+#define RT64_ANDROID_PRESENT_LOG(...) ((void)0)
 #endif
 
 namespace RT64 {
@@ -332,7 +332,7 @@ namespace RT64 {
                 const bool shouldLogUpload = uploadChanged && ((g_android_direct_vi_upload_logs < 8U) ||
                     (interestingDirectSource && (g_android_interesting_direct_vi_upload_logs < 32U)));
                 if (shouldLogUpload) {
-                    BANJO_ANDROID_LOG("PresentQueue uploaded VI storage directly: source=%s address=0x%08X size=%ux%u siz=%u storageOffset=0x%X sourceType=%u sourceFmt=%u",
+                    RT64_ANDROID_PRESENT_LOG("PresentQueue uploaded VI storage directly: source=%s address=0x%08X size=%ux%u siz=%u storageOffset=0x%X sourceType=%u sourceFmt=%u",
                         sourceTag, fbAddress, uint32_t(fbSize.x), uint32_t(fbSize.y), fbSiz, storageOffset, uint32_t(sourceType), uint32_t(sourceFmt));
                     if (interestingDirectSource) {
                         g_android_interesting_direct_vi_upload_logs++;
@@ -561,19 +561,19 @@ namespace RT64 {
                     rowStats(centerY, rowMidMean, rowMidNonzero);
                     rowStats(lastY, rowLastMean, rowLastNonzero);
 
-                    BANJO_ANDROID_LOG("PresentQueue gameplay source meta: address=0x%08X end=0x%08X size=%ux%u readHeight=%u maxHeight=%u rowBytes=%u RAMBytes=%u storageBase=0x%08X storageOffset=0x%X storageBytes=%zu expectedBytes=%zu lastWriteTimestamp=%llu rect=(%d,%d)-(%d,%d) rectSize=%dx%d",
+                    RT64_ANDROID_PRESENT_LOG("PresentQueue gameplay source meta: address=0x%08X end=0x%08X size=%ux%u readHeight=%u maxHeight=%u rowBytes=%u RAMBytes=%u storageBase=0x%08X storageOffset=0x%X storageBytes=%zu expectedBytes=%zu lastWriteTimestamp=%llu rect=(%d,%d)-(%d,%d) rectSize=%dx%d",
                         directSourceBaseAddress, directSourceFb->addressEnd, directSourceFb->width, directSourceFb->height, directSourceFb->readHeight, directSourceFb->maxHeight,
                         rowBytes, directSourceFb->RAMBytes, storageBaseAddress, directSourceOffset, directSourceBytesCount, expectedBytes,
                         static_cast<unsigned long long>(directSourceFb->lastWriteTimestamp), r.left(false), r.top(false), r.right(false), r.bottom(false),
                         r.width(false, false), r.height(false, false));
-                    BANJO_ANDROID_LOG("PresentQueue gameplay source samples: rows[y0=%u/%u yMid=%u/%u yLast=%u/%u] contiguous=[%04X,%04X,%04X,%04X] halfword=[%04X,%04X,%04X,%04X]",
+                    RT64_ANDROID_PRESENT_LOG("PresentQueue gameplay source samples: rows[y0=%u/%u yMid=%u/%u yLast=%u/%u] contiguous=[%04X,%04X,%04X,%04X] halfword=[%04X,%04X,%04X,%04X]",
                         row0Mean, row0Nonzero, rowMidMean, rowMidNonzero, rowLastMean, rowLastNonzero,
                         sampleContiguousRGBA16(0, 0), sampleContiguousRGBA16(centerX, centerY), sampleContiguousRGBA16(lastX, centerY), sampleContiguousRGBA16(lastX, lastY),
                         sampleHalfwordRGBA16(0, 0), sampleHalfwordRGBA16(centerX, centerY), sampleHalfwordRGBA16(lastX, centerY), sampleHalfwordRGBA16(lastX, lastY));
                     if (g_android_gameplay_origin_candidate_logs < 4U) {
                         const uint32_t originOffset = (present.screenVI.origin >= directSourceBaseAddress) ? (present.screenVI.origin - directSourceBaseAddress) : (directSourceBaseAddress - present.screenVI.origin);
                         uint32_t candidateCount = 0;
-                        BANJO_ANDROID_LOG("PresentQueue gameplay VI/source: viOrigin=0x%08X screenFb=0x%08X screenSize=%ux%u chosen=%s sourceAddress=0x%08X uploadAddress=0x%08X sourceSize=%ux%u uploadSize=%ux%u originOffset=0x%X",
+                        RT64_ANDROID_PRESENT_LOG("PresentQueue gameplay VI/source: viOrigin=0x%08X screenFb=0x%08X screenSize=%ux%u chosen=%s sourceAddress=0x%08X uploadAddress=0x%08X sourceSize=%ux%u uploadSize=%ux%u originOffset=0x%X",
                             present.screenVI.origin, screenFbAddress, uint32_t(screenFbSize.x), uint32_t(screenFbSize.y),
                             directSourceTag, directSourceBaseAddress, directSourceAddress, uint32_t(directSourceSize.x), uint32_t(directSourceSize.y), uint32_t(directSourceSize.x), uint32_t(directSourceSize.y), originOffset);
                         for (auto &fbEntry : fbManager.framebuffers) {
@@ -593,7 +593,7 @@ namespace RT64 {
                             }
 
                             const FixedRect &candidateRect = candidate.lastWriteRect;
-                            BANJO_ANDROID_LOG("PresentQueue gameplay candidate[%u]: address=0x%08X end=0x%08X size=%ux%u type=%u fmt=%u timestamp=%llu readHeight=%u maxHeight=%u storageOffset=0x%zX rect=(%d,%d)-(%d,%d) rectSize=%dx%d",
+                            RT64_ANDROID_PRESENT_LOG("PresentQueue gameplay candidate[%u]: address=0x%08X end=0x%08X size=%ux%u type=%u fmt=%u timestamp=%llu readHeight=%u maxHeight=%u storageOffset=0x%zX rect=(%d,%d)-(%d,%d) rectSize=%dx%d",
                                 candidateCount, candidate.addressStart, candidate.addressEnd, candidate.width, candidate.height, uint32_t(candidate.lastWriteType), uint32_t(candidate.lastWriteFmt),
                                 static_cast<unsigned long long>(candidate.lastWriteTimestamp), candidate.readHeight, candidate.maxHeight, candidateStorageOffset,
                                 candidateRect.left(false), candidateRect.top(false), candidateRect.right(false), candidateRect.bottom(false),
@@ -603,7 +603,7 @@ namespace RT64 {
                                 break;
                             }
                         }
-                        BANJO_ANDROID_LOG("PresentQueue gameplay candidates total=%u", candidateCount);
+                        RT64_ANDROID_PRESENT_LOG("PresentQueue gameplay candidates total=%u", candidateCount);
                         g_android_gameplay_origin_candidate_logs++;
                     }
 
@@ -753,7 +753,7 @@ namespace RT64 {
 
             static bool logged_swapchain_framebuffers = false;
             if (!logged_swapchain_framebuffers) {
-                BANJO_ANDROID_LOG("PresentQueue created %u swapchain framebuffers", textureCount);
+                RT64_ANDROID_PRESENT_LOG("PresentQueue created %u swapchain framebuffers", textureCount);
                 logged_swapchain_framebuffers = true;
             }
         }
@@ -838,7 +838,7 @@ namespace RT64 {
 
                 RenderHookDraw *drawHook = GetRenderHookDraw();
                 if (g_android_present_draw_logs < 64) {
-                    BANJO_ANDROID_LOG("PresentQueue drawing frame[%u]: swapChainIndex=%u hasColorTarget=%d drawHook=%d",
+                    RT64_ANDROID_PRESENT_LOG("PresentQueue drawing frame[%u]: swapChainIndex=%u hasColorTarget=%d drawHook=%d",
                         g_android_present_draw_logs, swapChainIndex, renderParams.texture != nullptr, drawHook != nullptr);
                     g_android_present_draw_logs++;
                 }
@@ -981,7 +981,7 @@ namespace RT64 {
                     swapChainValid = ext.swapChain->resize();
                     swapChainFramebuffers.clear();
 
-                    BANJO_ANDROID_LOG("PresentQueue resize completed: valid=%d width=%u height=%u textures=%u",
+                    RT64_ANDROID_PRESENT_LOG("PresentQueue resize completed: valid=%d width=%u height=%u textures=%u",
                         swapChainValid, ext.swapChain->getWidth(), ext.swapChain->getHeight(), ext.swapChain->getTextureCount());
 
                     if (swapChainValid) {
@@ -1014,7 +1014,7 @@ namespace RT64 {
                 skipPresent = skipPresent || ext.swapChain->isEmpty();
                 static bool logged_skip_present = false;
                 if (skipPresent && !logged_skip_present) {
-                    BANJO_ANDROID_LOG("PresentQueue skipping present: swapChainEmpty=%d swapChainValid=%d",
+                    RT64_ANDROID_PRESENT_LOG("PresentQueue skipping present: swapChainEmpty=%d swapChainValid=%d",
                         ext.swapChain->isEmpty(), swapChainValid);
                     logged_skip_present = true;
                 }

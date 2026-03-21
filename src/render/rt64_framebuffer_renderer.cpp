@@ -16,11 +16,11 @@
 #include "rt64_descriptor_sets.h"
 #include "rt64_render_worker.h"
 
-#if defined(__ANDROID__) && defined(BANJO_ENABLE_ANDROID_TRACE_LOGS)
+#if defined(__ANDROID__) && defined(RECOMP_ENABLE_ANDROID_TRACE_LOGS)
 #include <android/log.h>
-#define BANJO_FB_LOG(...) __android_log_print(ANDROID_LOG_INFO, "BanjoFB", __VA_ARGS__)
+#define RT64_ANDROID_FB_LOG(...) __android_log_print(ANDROID_LOG_INFO, "RT64FB", __VA_ARGS__)
 #else
-#define BANJO_FB_LOG(...) ((void)0)
+#define RT64_ANDROID_FB_LOG(...) ((void)0)
 #endif
 
 // TODO: Move to shared.
@@ -324,12 +324,12 @@ namespace RT64 {
         const bool createSet = (descTextureSet == nullptr) || (descTextureSet->textureCacheSize < requiredTextureSlots);
         if (createSet) {
             if (descriptorCapacity < requestedDescriptorCapacity) {
-                BANJO_FB_LOG("Clamping texture descriptor capacity: requested=%u max=%u textureCacheSize=%u",
+                RT64_ANDROID_FB_LOG("Clamping texture descriptor capacity: requested=%u max=%u textureCacheSize=%u",
                     requestedDescriptorCapacity, maxTextureDescriptors, textureCacheSize);
             }
 
             descTextureSet = std::make_unique<FramebufferRendererDescriptorTextureSet>(worker->device, descriptorCapacity);
-            BANJO_FB_LOG("Created texture descriptor set: textureCacheSize=%u descriptorCapacity=%u", textureCacheSize, descTextureSet->textureCacheSize);
+            RT64_ANDROID_FB_LOG("Created texture descriptor set: textureCacheSize=%u descriptorCapacity=%u", textureCacheSize, descTextureSet->textureCacheSize);
         }
 
         if (createSet || (descriptorTextureReplacementMapEnabled != textureCacheReplacementMapEnabled)) {
@@ -403,7 +403,7 @@ namespace RT64 {
             const uint32_t textureVersionSize = static_cast<uint32_t>(textureCacheVersions.size());
             const uint32_t descriptorUpdateCount = std::min(textureVersionSize, descTextureSet->textureCacheSize);
             if (descriptorUpdateCount < textureVersionSize) {
-                BANJO_FB_LOG("Skipping texture descriptors beyond capacity: updateCount=%u textureVersionSize=%u",
+                RT64_ANDROID_FB_LOG("Skipping texture descriptors beyond capacity: updateCount=%u textureVersionSize=%u",
                     descriptorUpdateCount, textureVersionSize);
             }
 
@@ -413,7 +413,7 @@ namespace RT64 {
                 }
 
                 if ((i % 128) == 0) {
-                    BANJO_FB_LOG("Updating texture descriptor %u/%u", i, textureVersionSize);
+                    RT64_ANDROID_FB_LOG("Updating texture descriptor %u/%u", i, textureVersionSize);
                 }
 
                 descriptorTextureVersions[i] = textureCacheVersions[i];
@@ -437,7 +437,7 @@ namespace RT64 {
 
         for (const DynamicTextureView &dynamicView : dynamicTextureViewVector) {
             if (dynamicView.dstIndex >= descTextureSet->textureCacheSize) {
-                BANJO_FB_LOG("Skipping dynamic texture descriptor beyond capacity: descriptor=%u capacity=%u",
+                RT64_ANDROID_FB_LOG("Skipping dynamic texture descriptor beyond capacity: descriptor=%u capacity=%u",
                     dynamicView.dstIndex, descTextureSet->textureCacheSize);
                 continue;
             }

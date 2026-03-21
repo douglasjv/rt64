@@ -7,11 +7,11 @@
 #include <cassert>
 #include <cinttypes>
 
-#if defined(__ANDROID__) && defined(BANJO_ENABLE_ANDROID_TRACE_LOGS)
+#if defined(__ANDROID__) && defined(RECOMP_ENABLE_ANDROID_TRACE_LOGS)
 #include <android/log.h>
-#define BANJO_ANDROID_STATE_LOG(...) __android_log_print(ANDROID_LOG_INFO, "BanjoRecomp", __VA_ARGS__)
+#define RT64_ANDROID_STATE_LOG(...) __android_log_print(ANDROID_LOG_INFO, "RT64State", __VA_ARGS__)
 #else
-#define BANJO_ANDROID_STATE_LOG(...) ((void)0)
+#define RT64_ANDROID_STATE_LOG(...) ((void)0)
 #endif
 
 #include "im3d/im3d.h"
@@ -1869,7 +1869,7 @@ namespace RT64 {
             (screenFbSize.x != g_android_last_interesting_fb_width) || (screenFbSize.y != g_android_last_interesting_fb_height) ||
             (screenFbSiz != g_android_last_interesting_fb_siz));
         if (changedInterestingScreenVI && (g_android_interesting_update_screen_logs < 32U)) {
-            BANJO_ANDROID_STATE_LOG("State::updateScreen VI origin=0x%08X width=%u fbAddress=0x%08X fbSize=%ux%u siz=%u fromEarly=%u",
+            RT64_ANDROID_STATE_LOG("State::updateScreen VI origin=0x%08X width=%u fbAddress=0x%08X fbSize=%ux%u siz=%u fromEarly=%u",
                 newVI.origin, newVI.width, screenFbAddress, uint32_t(screenFbSize.x), uint32_t(screenFbSize.y), screenFbSiz, fromEarlyPresent ? 1U : 0U);
             g_android_interesting_update_screen_logs++;
             g_android_last_interesting_vi_origin = newVI.origin;
