@@ -742,20 +742,12 @@ namespace RT64 {
             }
         }
 
-        // Create the framebuffers if necessary.
-        if (swapChainFramebuffers.empty()) {
-            uint32_t textureCount = ext.swapChain->getTextureCount();
-            swapChainFramebuffers.resize(textureCount);
-            for (uint32_t i = 0; i < textureCount; i++) {
-                const RenderTexture *swapChainTexture = ext.swapChain->getTexture(i);
-                swapChainFramebuffers[i] = ext.device->createFramebuffer(RenderFramebufferDesc(&swapChainTexture, 1));
-            }
-
-            static bool logged_swapchain_framebuffers = false;
-            if (!logged_swapchain_framebuffers) {
-                RT64_ANDROID_PRESENT_LOG("PresentQueue created %u swapchain framebuffers", textureCount);
-                logged_swapchain_framebuffers = true;
-            }
+        if (ext.swapChain->needsResize() || ext.swapChain->isEmpty()) {
+            swapChainFramebuffers.clear();
+            swapChainValid = false;
+            skipInterpolation();
+            notifyPresentId(present);
+            return;
         }
         
         for (int32_t i = 0; i < framesToPresent; i++) {
@@ -796,6 +788,33 @@ namespace RT64 {
             }
 
             if (presentFrame && swapChainValid) {
+                uint32_t textureCount = ext.swapChain->getTextureCount();
+                if (swapChainFramebuffers.size() != textureCount) {
+                    swapChainFramebuffers.clear();
+                    swapChainFramebuffers.resize(textureCount);
+                }
+
+                if (swapChainIndex >= textureCount) {
+                    RT64_ANDROID_PRESENT_LOG("PresentQueue skipping invalid swapChainIndex=%u textureCount=%u",
+                        swapChainIndex, textureCount);
+                    swapChainFramebuffers.clear();
+                    swapChainValid = false;
+                    skipInterpolation();
+                    notifyPresentId(present);
+                    return;
+                }
+
+                if (swapChainFramebuffers[swapChainIndex] == nullptr) {
+                    const RenderTexture *swapChainTexture = ext.swapChain->getTexture(swapChainIndex);
+                    swapChainFramebuffers[swapChainIndex] = ext.device->createFramebuffer(RenderFramebufferDesc(&swapChainTexture, 1));
+
+                    static bool logged_swapchain_framebuffers = false;
+                    if (!logged_swapchain_framebuffers) {
+                        RT64_ANDROID_PRESENT_LOG("PresentQueue created %u swapchain framebuffers", textureCount);
+                        logged_swapchain_framebuffers = true;
+                    }
+                }
+
                 // Draw the framebuffer with the VI renderer.
                 RenderTexture *swapChainTexture = ext.swapChain->getTexture(swapChainIndex);
                 RenderFramebuffer *swapChainFramebuffer = swapChainFramebuffers[swapChainIndex].get();
